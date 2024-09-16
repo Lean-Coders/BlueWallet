@@ -7,10 +7,14 @@ declare module 'coinselect' {
     };
   };
 
+  /**
+   * not an accurate definition since coinselect lib can ignore certain fields, and just passes through unknown fields,
+   * which we actually rely on
+   */
   export type CoinSelectUtxo = {
     vout: number;
     value: number;
-    txId: string;
+    txid: string;
     address?: string;
     wif?: string;
     txhex?: string;
@@ -32,7 +36,7 @@ declare module 'coinselect' {
   };
 
   export type CoinSelectOutput = {
-    address?: string;
+    address?: string; // if output has no address - this is a change output
     value: number;
   };
 
@@ -52,7 +56,7 @@ declare module 'coinselect/split' {
   type Utxo = {
     vout: number;
     value: number;
-    txId: string;
+    txid: string;
   };
 
   export default function coinSelectSplit<U extends Utxo>(

@@ -1,33 +1,19 @@
-import {
-  helperDeleteWallet,
-  sleep,
-  hashIt,
-  sup,
-  yo,
-  extractTextFromElementById,
-  expectToBeVisible,
-  helperCreateWallet,
-  helperSwitchAdvancedMode,
-} from './helperz';
-const bitcoin = require('bitcoinjs-lib');
-const assert = require('assert');
+import assert from 'assert';
+import * as bitcoin from 'bitcoinjs-lib';
+
+import { expectToBeVisible, extractTextFromElementById, hashIt, helperCreateWallet, helperDeleteWallet, sleep, sup, yo } from './helperz';
+import { element } from 'detox';
 
 /**
  * this testsuite is for test cases that require no wallets to be present
  */
-
-beforeAll(async () => {
-  // reinstalling the app just for any case to clean up app's storage
-  await device.launchApp({ delete: true });
-}, 300_000);
-
 describe('BlueWallet UI Tests - no wallets', () => {
   it('selftest passes', async () => {
     const lockFile = '/tmp/travislock.' + hashIt('t1');
     if (process.env.TRAVIS) {
       if (require('fs').existsSync(lockFile)) return console.warn('skipping', JSON.stringify('t1'), 'as it previously passed on Travis');
     }
-    await device.launchApp({ newInstance: true });
+    await device.launchApp({ delete: true }); // reinstalling the app just for any case to clean up app's storage
     await waitFor(element(by.id('WalletsList')))
       .toBeVisible()
       .withTimeout(300 * 1000);
@@ -51,7 +37,7 @@ describe('BlueWallet UI Tests - no wallets', () => {
     if (process.env.TRAVIS) {
       if (require('fs').existsSync(lockFile)) return console.warn('skipping', JSON.stringify('t2'), 'as it previously passed on Travis');
     }
-    await device.launchApp({ newInstance: true });
+    await device.launchApp({ delete: true }); // reinstalling the app just for any case to clean up app's storage
     await yo('WalletsList');
 
     // go to settings, press SelfTest and wait for OK
@@ -68,14 +54,8 @@ describe('BlueWallet UI Tests - no wallets', () => {
     await element(by.id('QuickActionsSwitch')).tap();
     await element(by.id('QuickActionsSwitch')).tap();
     await device.pressBack();
+    await device.pressBack();
 
-    // enable AdvancedMode
-    await element(by.id('AdvancedMode')).tap();
-    await device.pressBack();
-    // disable it:
-    await element(by.id('GeneralSettings')).tap();
-    await element(by.id('AdvancedMode')).tap();
-    await device.pressBack();
     //
     // currency
     // change currency to ARS ($) and switch it back to USD ($)
@@ -189,7 +169,7 @@ describe('BlueWallet UI Tests - no wallets', () => {
     if (process.env.TRAVIS) {
       if (require('fs').existsSync(lockFile)) return console.warn('skipping', JSON.stringify('t3'), 'as it previously passed on Travis');
     }
-    await device.launchApp({ newInstance: true });
+    await device.launchApp({ delete: true }); // reinstalling the app just for any case to clean up app's storage
     await yo('WalletsList');
 
     await helperCreateWallet();
@@ -199,22 +179,25 @@ describe('BlueWallet UI Tests - no wallets', () => {
     await expect(element(by.id('cr34t3d'))).toBeVisible();
     await element(by.id('cr34t3d')).tap();
     await element(by.id('ReceiveButton')).tap();
-    await element(by.text('Yes, I have')).tap();
+    await element(by.text('Yes, I have.')).tap();
     try {
       // in case emulator has no google services and doesnt support pushes
       // we just dont show this popup
-      await element(by.text(`No, and don’t ask me again`)).tap();
+      await element(by.text(`No, and do not ask me again.`)).tap();
+      await element(by.text(`No, and do not ask me again.`)).tap(); // sometimes the first click doesnt work (detox issue, not app's)
     } catch (_) {}
     await yo('BitcoinAddressQRCodeContainer');
-    await yo('BlueCopyTextToClipboard');
+    await yo('CopyTextToClipboard');
     await element(by.id('SetCustomAmountButton')).tap();
     await element(by.id('BitcoinAmountInput')).replaceText('1');
     await element(by.id('CustomAmountDescription')).typeText('test');
+    await element(by.id('CustomAmountDescription')).tapReturnKey();
     await element(by.id('CustomAmountSaveButton')).tap();
-    await sup('1 BTC');
-    await sup('test');
+    await expect(element(by.id('CustomAmountDescriptionText'))).toHaveText('test');
+    await expect(element(by.id('BitcoinAmountText'))).toHaveText('1 BTC');
+
     await yo('BitcoinAddressQRCodeContainer');
-    await yo('BlueCopyTextToClipboard');
+    await yo('CopyTextToClipboard');
     await device.pressBack();
     await device.pressBack();
     await helperDeleteWallet('cr34t3d');
@@ -226,7 +209,7 @@ describe('BlueWallet UI Tests - no wallets', () => {
     if (process.env.TRAVIS) {
       if (require('fs').existsSync(lockFile)) return console.warn('skipping', JSON.stringify('t4'), 'as it previously passed on Travis');
     }
-    await device.launchApp({ newInstance: true });
+    await device.launchApp({ delete: true }); // reinstalling the app just for any case to clean up app's storage
     await yo('WalletsList');
 
     // lets create a wallet
@@ -239,7 +222,7 @@ describe('BlueWallet UI Tests - no wallets', () => {
 
     // go to Security page where we will enable encryption
     await element(by.id('SecurityButton')).tap();
-    // await expect(element(by.id('EncyptedAndPasswordProtected'))).toBeVisible(); // @see https://github.com/react-native-elements/react-native-elements/issues/2519
+    // await expect(element(by.id('EncyptedAndPasswordProtected'))).toBeVisible(); // @see https://github.com/@rneui/themed/@rneui/themed/issues/2519
     await expect(element(by.id('PlausibleDeniabilityButton'))).toBeNotVisible();
 
     if (device.getPlatform() === 'ios') {
@@ -250,19 +233,25 @@ describe('BlueWallet UI Tests - no wallets', () => {
     // lets encrypt the storage.
     // first, trying to mistype second password:
     await element(by.type('android.widget.CompoundButton')).tap(); // thats a switch lol. lets tap it
-    await element(by.type('android.widget.EditText')).typeText('08902');
-    await element(by.text('OK')).tap();
-    await element(by.type('android.widget.EditText')).typeText('666');
-    await element(by.text('OK')).tap();
-    await expect(element(by.text('Passwords do not match.'))).toBeVisible();
-    await element(by.text('OK')).tap();
+    await element(by.id('IUnderstandButton')).tap();
+    if (process.env.TRAVIS) await sleep(3000); // hopefully helps prevent crash
+
+    await element(by.id('PasswordInput')).typeText('08902');
+    await element(by.id('PasswordInput')).tapReturnKey();
+    await element(by.id('ConfirmPasswordInput')).typeText('666');
+    await element(by.id('ConfirmPasswordInput')).tapReturnKey();
+    await element(by.id('OKButton')).tap();
+    if (process.env.TRAVIS) await sleep(3000); // hopefully helps prevent crash
 
     // now, lets put correct passwords and encrypt the storage
-    await element(by.type('android.widget.CompoundButton')).tap(); // thats a switch lol
-    await element(by.type('android.widget.EditText')).typeText('qqq');
-    await element(by.text('OK')).tap();
-    await element(by.type('android.widget.EditText')).typeText('qqq');
-    await element(by.text('OK')).tap();
+    await element(by.id('PasswordInput')).clearText();
+    await element(by.id('PasswordInput')).typeText('qqq');
+    await element(by.id('PasswordInput')).tapReturnKey();
+    await element(by.id('ConfirmPasswordInput')).clearText();
+    await element(by.id('ConfirmPasswordInput')).typeText('qqq');
+    await element(by.id('ConfirmPasswordInput')).tapReturnKey();
+    await element(by.id('OKButton')).tap();
+    if (process.env.TRAVIS) await sleep(3000); // hopefully helps prevent crash
 
     // relaunch app
     await device.launchApp({ newInstance: true });
@@ -290,43 +279,46 @@ describe('BlueWallet UI Tests - no wallets', () => {
     await element(by.id('SettingsButton')).tap();
     await expect(element(by.id('SecurityButton'))).toBeVisible();
     await element(by.id('SecurityButton')).tap();
-    // await expect(element(by.id('EncyptedAndPasswordProtected'))).toBeVisible(); // @see https://github.com/react-native-elements/react-native-elements/issues/2519
+    // await expect(element(by.id('EncyptedAndPasswordProtected'))).toBeVisible(); // @see https://github.com/@rneui/themed/@rneui/themed/issues/2519
     await expect(element(by.id('PlausibleDeniabilityButton'))).toBeVisible();
     await element(by.id('PlausibleDeniabilityButton')).tap();
 
     // trying to enable plausible denability
     await element(by.id('CreateFakeStorageButton')).tap();
-    await expect(element(by.text('Password for the fake storage should not match the password for your main storage.'))).toBeVisible();
+    if (process.env.TRAVIS) await sleep(3000); // hopefully helps prevent crash
 
     // trying MAIN password: should fail, obviously
-    await element(by.type('android.widget.EditText')).typeText('qqq');
-    await element(by.text('OK')).tap();
+    await element(by.id('PasswordInput')).typeText('qqq');
+    await element(by.id('PasswordInput')).tapReturnKey();
+    await element(by.id('ConfirmPasswordInput')).typeText('qqq');
+    await element(by.id('ConfirmPasswordInput')).tapReturnKey();
+    await element(by.id('OKButton')).tap();
+    if (process.env.TRAVIS) await sleep(3000); // hopefully helps prevent crash
     await expect(element(by.text('Password is currently in use. Please try a different password.'))).toBeVisible();
     if (process.env.TRAVIS) await sleep(3000); // hopefully helps prevent crash
     await element(by.text('OK')).tap();
     if (process.env.TRAVIS) await sleep(3000); // hopefully helps prevent crash
 
     // trying new password, but will mistype
-    await element(by.id('CreateFakeStorageButton')).tap();
     if (process.env.TRAVIS) await sleep(3000); // hopefully helps prevent crash
-    await element(by.type('android.widget.EditText')).typeText('passwordForFakeStorage');
-    await element(by.text('OK')).tap();
-    await expect(element(by.text('Re-type password'))).toBeVisible();
-    await element(by.type('android.widget.EditText')).typeText('passwordForFakeStorageWithTypo'); // retyping with typo
-    await element(by.text('OK')).tap();
-    await expect(element(by.text('Passwords do not match. Please try again.'))).toBeVisible();
-    await element(by.text('OK')).tap();
+    await element(by.id('PasswordInput')).clearText();
+    await element(by.id('PasswordInput')).typeText('passwordForFakeStorage');
+    await element(by.id('PasswordInput')).tapReturnKey();
+    await element(by.id('ConfirmPasswordInput')).clearText();
+    await element(by.id('ConfirmPasswordInput')).typeText('passwordForFakeStorageWithTypo'); // retyping with typo
+    await element(by.id('ConfirmPasswordInput')).tapReturnKey();
+    await element(by.id('OKButton')).tap();
+    if (process.env.TRAVIS) await sleep(3000); // hopefully helps prevent crash
 
     // trying new password
-    await element(by.id('CreateFakeStorageButton')).tap();
-    await element(by.type('android.widget.EditText')).typeText('passwordForFakeStorage');
-    await element(by.text('OK')).tap();
-    await expect(element(by.text('Re-type password'))).toBeVisible();
-    await element(by.type('android.widget.EditText')).typeText('passwordForFakeStorage'); // retyping
-    await element(by.text('OK')).tap();
-
-    await expect(element(by.text('Success'))).toBeVisible();
-    await element(by.text('OK')).tap();
+    await element(by.id('PasswordInput')).clearText();
+    await element(by.id('PasswordInput')).typeText('passwordForFakeStorage');
+    await element(by.id('PasswordInput')).tapReturnKey();
+    await element(by.id('ConfirmPasswordInput')).clearText();
+    await element(by.id('ConfirmPasswordInput')).typeText('passwordForFakeStorage'); // retyping
+    await element(by.id('ConfirmPasswordInput')).tapReturnKey();
+    await element(by.id('OKButton')).tap();
+    if (process.env.TRAVIS) await sleep(3000); // hopefully helps prevent crash
 
     // created fake storage.
     // creating a wallet inside this fake storage
@@ -367,8 +359,10 @@ describe('BlueWallet UI Tests - no wallets', () => {
     // correct password
     await element(by.type('android.widget.CompoundButton')).tap(); // thats a switch lol
     await element(by.text('OK')).tap();
-    await element(by.type('android.widget.EditText')).typeText('passwordForFakeStorage');
-    await element(by.text('OK')).tap();
+    await element(by.id('PasswordInput')).typeText('passwordForFakeStorage');
+    await element(by.id('PasswordInput')).tapReturnKey();
+    await element(by.id('OKButton')).tap();
+    if (process.env.TRAVIS) await sleep(3000); // hopefully helps prevent crash
 
     await helperDeleteWallet('fake_wallet');
 
@@ -380,7 +374,7 @@ describe('BlueWallet UI Tests - no wallets', () => {
     if (process.env.TRAVIS) {
       if (require('fs').existsSync(lockFile)) return console.warn('skipping', JSON.stringify('t5'), 'as it previously passed on Travis');
     }
-    await device.launchApp({ newInstance: true });
+    await device.launchApp({ delete: true }); // reinstalling the app just for any case to clean up app's storage
     await yo('WalletsList');
     await helperCreateWallet();
     await element(by.id('SettingsButton')).tap();
@@ -393,22 +387,26 @@ describe('BlueWallet UI Tests - no wallets', () => {
     // lets encrypt the storage.
     // lets put correct passwords and encrypt the storage
     await element(by.type('android.widget.CompoundButton')).tap(); // thats a switch lol
-    await element(by.type('android.widget.EditText')).typeText('pass');
-    await element(by.text('OK')).tap();
-    await element(by.type('android.widget.EditText')).typeText('pass');
-    await element(by.text('OK')).tap();
+    if (process.env.TRAVIS) await sleep(3000); // hopefully helps prevent crash
+    await element(by.id('IUnderstandButton')).tap();
+    if (process.env.TRAVIS) await sleep(3000); // hopefully helps prevent crash
+    await element(by.id('PasswordInput')).typeText('pass');
+    await element(by.id('PasswordInput')).tapReturnKey();
+    await element(by.id('ConfirmPasswordInput')).typeText('pass');
+    await element(by.id('ConfirmPasswordInput')).tapReturnKey();
+    await element(by.id('OKButton')).tap();
+    if (process.env.TRAVIS) await sleep(3000); // hopefully helps prevent crash
     await element(by.id('PlausibleDeniabilityButton')).tap();
 
     // trying to enable plausible denability
     await element(by.id('CreateFakeStorageButton')).tap();
-    await element(by.type('android.widget.EditText')).typeText('fake');
-    await element(by.text('OK')).tap();
-    await expect(element(by.text('Re-type password'))).toBeVisible();
-    await element(by.type('android.widget.EditText')).typeText('fake'); // retyping
-    await element(by.text('OK')).tap();
-    await expect(element(by.text('Success'))).toBeVisible();
-    await element(by.text('OK')).tap();
-
+    if (process.env.TRAVIS) await sleep(3000); // hopefully helps prevent crash
+    await element(by.id('PasswordInput')).typeText('fake');
+    await element(by.id('PasswordInput')).tapReturnKey();
+    await element(by.id('ConfirmPasswordInput')).typeText('fake'); // retyping
+    await element(by.id('ConfirmPasswordInput')).tapReturnKey();
+    await element(by.id('OKButton')).tap();
+    if (process.env.TRAVIS) await sleep(3000); // hopefully helps prevent crash
     // created fake storage.
     // creating a wallet inside this fake storage
     await helperCreateWallet('fake_wallet');
@@ -434,16 +432,16 @@ describe('BlueWallet UI Tests - no wallets', () => {
     // putting FAKE storage password. should not succeed
     await element(by.type('android.widget.CompoundButton')).tap(); // thats a switch lol
     await element(by.text('OK')).tap();
-    await element(by.type('android.widget.EditText')).typeText('fake');
-    await element(by.text('OK')).tap();
-    await expect(element(by.text('Incorrect password. Please try again.'))).toBeVisible();
-    await element(by.text('OK')).tap();
-
+    await element(by.id('PasswordInput')).typeText('fake');
+    await element(by.id('PasswordInput')).tapReturnKey();
+    await element(by.id('OKButton')).tap();
+    if (process.env.TRAVIS) await sleep(3000); // hopefully helps prevent crash
     // correct password
-    await element(by.type('android.widget.CompoundButton')).tap(); // thats a switch lol
-    await element(by.text('OK')).tap();
-    await element(by.type('android.widget.EditText')).typeText('pass');
-    await element(by.text('OK')).tap();
+    await element(by.id('PasswordInput')).clearText();
+    await element(by.id('PasswordInput')).typeText('pass');
+    await element(by.id('PasswordInput')).tapReturnKey();
+    await element(by.id('OKButton')).tap();
+    if (process.env.TRAVIS) await sleep(3000); // hopefully helps prevent crash
 
     // relaunch app
     await device.launchApp({ newInstance: true });
@@ -452,14 +450,93 @@ describe('BlueWallet UI Tests - no wallets', () => {
     process.env.TRAVIS && require('fs').writeFileSync(lockFile, '1');
   });
 
+  it('can import 2of2 multisig using individual cosigners (1 signer, 1 xpub)', async () => {
+    const lockFile = '/tmp/travislock.' + hashIt('can import 2of2 multisig using individual cosigners (1 signer, 1 xpub)');
+    if (process.env.TRAVIS) {
+      if (require('fs').existsSync(lockFile)) return console.warn('skipping as it previously passed on Travis');
+    }
+    await device.launchApp({ delete: true }); // reinstalling the app just for any case to clean up app's storage
+    await yo('WalletsList');
+    await element(by.id('WalletsList')).swipe('left', 'fast', 1); // in case emu screen is small and it doesnt fit
+    await sleep(200); // Wait until bounce animation finishes.
+    // going to Import Wallet screen and importing Vault
+    await element(by.id('CreateAWallet')).tap();
+    await yo('ActivateVaultButton');
+    await element(by.id('ActivateVaultButton')).tap();
+    await element(by.id('Create')).tap();
+    // vault settings:
+    await element(by.id('VaultAdvancedCustomize')).tap();
+    await element(by.id('DecreaseN')).tap();
+    await element(by.id('ModalDoneButton')).tap();
+
+    //
+
+    await element(by.id('LetsStart')).tap();
+
+    // key1 - seed:
+
+    await element(by.id('VaultCosignerImport1')).tap();
+    await element(by.id('ScanOrOpenFile')).tap();
+
+    await sleep(5000); // wait for camera screen to initialize
+    for (let c = 0; c <= 5; c++) {
+      await element(by.id('ScanQrBackdoorButton')).tap();
+    }
+    await element(by.id('scanQrBackdoorInput')).replaceText(
+      'pipe goose bottom run seed curious thought kangaroo example family coral success',
+    );
+    await element(by.id('scanQrBackdoorOkButton')).tap();
+    await element(by.id('DoImportKeyButton')).tap(); // when seed - need to extra tap the button
+
+    // key2 - xpub:
+
+    await element(by.id('VaultCosignerImport2')).tap();
+    await element(by.id('ScanOrOpenFile')).tap();
+
+    await sleep(5000); // wait for camera screen to initialize
+    for (let c = 0; c <= 5; c++) {
+      await element(by.id('ScanQrBackdoorButton')).tap();
+    }
+    await element(by.id('scanQrBackdoorInput')).replaceText(
+      'ur:crypto-account/oeadcypdlouebgaolytaadmetaaddloxaxhdclaxfdyksnwkuypkfevlfzfroyiyecoeosbakbpdcldawzhtcarkwsndcphphsbsdsayaahdcxfgjyckryosmwtdptlbflonbkimlsmovolslbytonayisprvoieftgeflzcrtvesbamtaaddyotadlocsdyykaeykaeykaoykaocypdlouebgaxaaaycyttatrnolimvetsst',
+    );
+    await element(by.id('scanQrBackdoorOkButton')).tap();
+    // when xpub - it automatically closes the modal, so no need to tap the button
+
+    await element(by.id('CreateButton')).tap();
+    await yo('Multisig Vault');
+    await element(by.id('Multisig Vault')).tap(); // go inside the wallet
+
+    await element(by.id('ReceiveButton')).tap();
+    await element(by.text('Yes, I have.')).tap();
+    try {
+      // in case emulator has no google services and doesnt support pushes
+      // we just dont show this popup
+      await element(by.text(`No, and do not ask me again.`)).tap();
+      await element(by.text(`No, and do not ask me again.`)).tap(); // sometimes the first click doesnt work (detox issue, not app's)
+    } catch (_) {}
+
+    await sup('bc1qmf06nt4jhvzz4387ak8fecs42k6jqygr2unumetfc7xkdup7ah9s8phlup');
+
+    await device.pressBack();
+
+    await element(by.id('WalletDetails')).tap();
+    await sup('2 / 2 (native segwit)');
+
+    await device.pressBack();
+    await helperDeleteWallet('Multisig Vault');
+    process.env.TRAVIS && require('fs').writeFileSync(lockFile, '1');
+  });
+
   it('can import multisig setup from UR, and create tx, and sign on hw devices', async () => {
     const lockFile = '/tmp/travislock.' + hashIt('t6');
     if (process.env.TRAVIS) {
       if (require('fs').existsSync(lockFile)) return console.warn('skipping', JSON.stringify('t6'), 'as it previously passed on Travis');
     }
-    await device.launchApp({ newInstance: true });
+    await device.launchApp({ delete: true }); // reinstalling the app just for any case to clean up app's storage
     await yo('WalletsList');
     await element(by.id('WalletsList')).swipe('left', 'fast', 1); // in case emu screen is small and it doesnt fit
+    await sleep(200); // Wait until bounce animation finishes.
     // going to Import Wallet screen and importing mnemonic
     await element(by.id('CreateAWallet')).tap();
     await element(by.id('ImportWallet')).tap();
@@ -474,6 +551,7 @@ describe('BlueWallet UI Tests - no wallets', () => {
 
     for (const ur of urs) {
       // tapping 5 times invisible button is a backdoor:
+      await sleep(5000); // wait for camera screen to initialize
       for (let c = 0; c <= 5; c++) {
         await element(by.id('ScanQrBackdoorButton')).tap();
       }
@@ -497,12 +575,13 @@ describe('BlueWallet UI Tests - no wallets', () => {
 
     await element(by.id('AddressInput')).replaceText('bc1q063ctu6jhe5k4v8ka99qac8rcm2tzjjnuktyrl');
     await element(by.id('BitcoinAmountInput')).typeText('0.0005\n');
+    await element(by.id('BitcoinAmountInput')).tapReturnKey();
 
     // setting fee rate:
     const feeRate = 3;
     await element(by.id('chooseFee')).tap();
     await element(by.id('feeCustom')).tap();
-    await element(by.type('android.widget.EditText')).typeText(feeRate + '');
+    await element(by.type('android.widget.EditText')).typeText(feeRate + '\n');
     await element(by.text('OK')).tap();
 
     if (process.env.TRAVIS) await sleep(5000);
@@ -525,6 +604,7 @@ describe('BlueWallet UI Tests - no wallets', () => {
 
     for (const ur of ursSignedByPassport) {
       // tapping 5 times invisible button is a backdoor:
+      await sleep(5000); // wait for camera screen to initialize
       for (let c = 0; c <= 5; c++) {
         await element(by.id('ScanQrBackdoorButton')).tap();
       }
@@ -545,6 +625,7 @@ describe('BlueWallet UI Tests - no wallets', () => {
 
     for (const ur of urSignedByPassportAndKeystone) {
       // tapping 5 times invisible button is a backdoor:
+      await sleep(5000); // wait for camera screen to initialize
       for (let c = 0; c <= 5; c++) {
         await element(by.id('ScanQrBackdoorButton')).tap();
       }
@@ -580,25 +661,26 @@ describe('BlueWallet UI Tests - no wallets', () => {
   });
 
   it('can discover wallet account and import it', async () => {
-    const lockFile = '/tmp/travislock.' + hashIt('t6');
+    const lockFile = '/tmp/travislock.' + hashIt('t7');
     if (process.env.TRAVIS) {
       if (require('fs').existsSync(lockFile)) return console.warn('skipping', JSON.stringify('t6'), 'as it previously passed on Travis');
     }
-    await device.launchApp({ newInstance: true });
+    await device.launchApp({ delete: true }); // reinstalling the app just for any case to clean up app's storage
     await yo('WalletsList');
 
-    // enable AdvancedMode to see derivation path in wallet details
-    await helperSwitchAdvancedMode();
-
     await element(by.id('WalletsList')).swipe('left', 'fast', 1); // in case emu screen is small and it doesnt fit
+    await sleep(200); // Wait until bounce animation finishes.
     // going to Import Wallet screen and importing mnemonic
     await element(by.id('CreateAWallet')).tap();
+    await element(by.id('ScrollView')).swipe('up', 'fast', 0.9); // in case emu screen is small and it doesnt fit
     await element(by.id('ImportWallet')).tap();
     await element(by.id('MnemonicInput')).replaceText(
       'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
     );
-    await element(by.id('AskPassphrase')).tap();
-    await element(by.id('SearchAccounts')).tap();
+    await element(by.id('HeaderRightButton')).tap();
+    await element(by.text('Passphrase')).tap();
+    await element(by.id('HeaderRightButton')).tap();
+    await element(by.text('Search accounts')).tap();
     await element(by.id('DoImport')).tap();
     await sleep(1000);
 
@@ -618,10 +700,10 @@ describe('BlueWallet UI Tests - no wallets', () => {
     // open custom derivation path screen and import the wallet
     await element(by.id('CustomDerivationPathButton')).tap();
     await element(by.id('DerivationPathInput')).replaceText("m/44'/0'/1'");
-    await waitFor(element(by.text('found'))) // wait for discovery to be completed
+    await waitFor(element(by.text('Found'))) // wait for discovery to be completed
       .toExist()
       .withTimeout(300 * 1000);
-    await element(by.text('found')).tap();
+    await element(by.text('Found')).tap();
     await element(by.id('ImportButton')).tap();
     await element(by.text('OK')).tap();
 
@@ -633,7 +715,6 @@ describe('BlueWallet UI Tests - no wallets', () => {
     await device.pressBack();
     await device.pressBack();
     await helperDeleteWallet('Imported HD Legacy (BIP44 P2PKH)');
-    await helperSwitchAdvancedMode();
 
     process.env.TRAVIS && require('fs').writeFileSync(lockFile, '1');
   });

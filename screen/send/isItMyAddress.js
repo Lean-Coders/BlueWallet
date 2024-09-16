@@ -1,16 +1,19 @@
-import React, { useState, useContext, useRef } from 'react';
-import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
-import { StyleSheet, View, KeyboardAvoidingView, Platform, TextInput, Keyboard } from 'react-native';
-
+import React, { useRef, useState } from 'react';
+import { useRoute } from '@react-navigation/native';
+import { Keyboard, StyleSheet, TextInput, View } from 'react-native';
+import { BlueButtonLink, BlueCard, BlueSpacing10, BlueSpacing20, BlueText } from '../../BlueComponents';
+import Button from '../../components/Button';
+import SafeArea from '../../components/SafeArea';
+import { useTheme } from '../../components/themes';
+import { requestCameraAuthorization } from '../../helpers/scan-qr';
 import loc from '../../loc';
-import { BlueButton, BlueButtonLink, BlueCard, BlueSpacing10, BlueSpacing20, BlueText, SafeBlueArea } from '../../BlueComponents';
-import navigationStyle from '../../components/navigationStyle';
-import { BlueStorageContext } from '../../blue_modules/storage-context';
+import { useStorage } from '../../hooks/context/useStorage';
+import { useExtendedNavigation } from '../../hooks/useExtendedNavigation';
 
 const IsItMyAddress = () => {
   /** @type {AbstractWallet[]} */
-  const wallets = useContext(BlueStorageContext).wallets;
-  const { navigate } = useNavigation();
+  const { wallets } = useStorage();
+  const { navigate } = useExtendedNavigation();
   const { name } = useRoute();
   const { colors } = useTheme();
   const scanButtonRef = useRef();
@@ -54,13 +57,15 @@ const IsItMyAddress = () => {
   };
 
   const importScan = () => {
-    navigate('ScanQRCodeRoot', {
-      screen: 'ScanQRCode',
-      params: {
-        launchedBy: name,
-        onBarScanned,
-        showFileImportButton: true,
-      },
+    requestCameraAuthorization().then(() => {
+      navigate('ScanQRCodeRoot', {
+        screen: 'ScanQRCode',
+        params: {
+          launchedBy: name,
+          onBarScanned,
+          showFileImportButton: true,
+        },
+      });
     });
   };
 
@@ -80,68 +85,58 @@ const IsItMyAddress = () => {
   };
 
   return (
-    <SafeBlueArea style={styles.blueArea}>
-      <KeyboardAvoidingView
-        enabled={!Platform.isPad}
-        behavior={Platform.OS === 'ios' ? 'position' : null}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.wrapper}>
-          <BlueCard style={styles.mainCard}>
-            <View style={[styles.input, stylesHooks.input]}>
-              <TextInput
-                style={styles.text}
-                maxHeight={100}
-                minHeight={100}
-                maxWidth="100%"
-                minWidth="100%"
-                multiline
-                editable
-                placeholder={loc.is_it_my_address.enter_address}
-                placeholderTextColor="#81868e"
-                value={address}
-                onChangeText={handleUpdateAddress}
-                testID="AddressInput"
-              />
-            </View>
-
-            <BlueSpacing10 />
-            <BlueButtonLink ref={scanButtonRef} title={loc.wallets.import_scan_qr} onPress={importScan} />
-            <BlueSpacing10 />
-            <BlueButton title={loc.send.input_clear} onPress={clearAddressInput} />
-            <BlueSpacing20 />
-            {resultCleanAddress && (
-              <>
-                <BlueButton title={loc.is_it_my_address.view_qrcode} onPress={viewQRCode} />
-                <BlueSpacing20 />
-              </>
-            )}
-            <BlueButton
-              disabled={address.trim().length === 0}
-              title={loc.is_it_my_address.check_address}
-              onPress={checkAddress}
-              testID="CheckAddress"
+    <SafeArea style={styles.blueArea}>
+      <View style={styles.wrapper}>
+        <BlueCard style={styles.mainCard}>
+          <View style={[styles.input, stylesHooks.input]}>
+            <TextInput
+              style={styles.text}
+              maxHeight={100}
+              minHeight={100}
+              maxWidth="100%"
+              minWidth="100%"
+              multiline
+              editable
+              placeholder={loc.is_it_my_address.enter_address}
+              placeholderTextColor="#81868e"
+              value={address}
+              onChangeText={handleUpdateAddress}
+              testID="AddressInput"
             />
-            <BlueSpacing20 />
-            <BlueText testID="Result">{result}</BlueText>
-          </BlueCard>
-        </View>
-      </KeyboardAvoidingView>
-    </SafeBlueArea>
+          </View>
+
+          <BlueSpacing10 />
+          <BlueButtonLink ref={scanButtonRef} title={loc.wallets.import_scan_qr} onPress={importScan} />
+          <BlueSpacing10 />
+          <Button title={loc.send.input_clear} onPress={clearAddressInput} />
+          <BlueSpacing20 />
+          {resultCleanAddress && (
+            <>
+              <Button title={loc.is_it_my_address.view_qrcode} onPress={viewQRCode} />
+              <BlueSpacing20 />
+            </>
+          )}
+          <Button
+            disabled={address.trim().length === 0}
+            title={loc.is_it_my_address.check_address}
+            onPress={checkAddress}
+            testID="CheckAddress"
+          />
+          <BlueSpacing20 />
+          <BlueText testID="Result">{result}</BlueText>
+        </BlueCard>
+      </View>
+    </SafeArea>
   );
 };
 
 export default IsItMyAddress;
-IsItMyAddress.navigationOptions = navigationStyle({}, opts => ({ ...opts, title: loc.is_it_my_address.title }));
 
 const styles = StyleSheet.create({
   wrapper: {
     marginTop: 16,
     alignItems: 'center',
     justifyContent: 'flex-start',
-  },
-  blueArea: {
-    paddingTop: 19,
   },
   mainCard: {
     padding: 0,

@@ -20,12 +20,11 @@ DerivedData
 *.hmap
 *.ipa
 *.xcuserstate
-ios/.xcode.env.local
+**/.xcode.env.local
 *.hprof
 .cxx/
 *.keystore
 !debug.keystore
-
 # Android/IntelliJ
 #
 build/
@@ -33,6 +32,9 @@ build/
 .gradle
 local.properties
 *.iml
+
+# testing
+/coverage
 
 # node.js
 #
@@ -57,6 +59,7 @@ buck-out/
 */fastlane/Preview.html
 */fastlane/screenshots
 **/fastlane/test_output
+ios/fastlane
 
 # Bundle artifact
 *.jsbundle
@@ -67,7 +70,7 @@ release-notes.txt
 current-branch.json
 
 # Ruby / CocoaPods
-/ios/Pods/
+**/Pods/
 /vendor/bundle/
 ios/BlueWallet.xcodeproj/xcuserdata/
 
@@ -82,3 +85,10 @@ artifacts/
 *.mx
 *.realm
 *.realm.lock
+android/app/.project
+android/app/.classpath
+android/.settings/org.eclipse.buildship.core.prefs
+android/.project
+android/.settings/org.eclipse.buildship.core.prefs
+android/app/.classpath
+android/app/.project

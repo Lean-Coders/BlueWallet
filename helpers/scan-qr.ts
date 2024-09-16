@@ -1,39 +1,62 @@
+import { Platform } from 'react-native';
+import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
+import { navigationRef } from '../NavigationService';
+
 /**
  * Helper function that navigates to ScanQR screen, and returns promise that will resolve with the result of a scan,
  * and then navigates back. If QRCode scan was closed, promise resolves to null.
  *
- * @param navigateFunc {function}
  * @param currentScreenName {string}
  * @param showFileImportButton {boolean}
  *
+ * @param onDismiss {function} - if camera is closed via X button it gets triggered
+ * @param useMerge {boolean} - if true, will merge the new screen with the current screen, otherwise will replace the current screen
  * @return {Promise<string>}
  */
-module.exports = function scanQrHelper(
-  navigateFunc: (scr: string, params?: any) => void,
+function scanQrHelper(
   currentScreenName: string,
   showFileImportButton = true,
+  onDismiss?: () => void,
+  useMerge = true,
 ): Promise<string | null> {
-  return new Promise(resolve => {
-    const params = {
-      showFileImportButton: Boolean(showFileImportButton),
-      onBarScanned: (data: any) => {},
-      onDismiss: () => {},
-    };
+  return requestCameraAuthorization().then(() => {
+    return new Promise(resolve => {
+      let params = {};
 
-    params.onBarScanned = function (data: any) {
-      setTimeout(() => resolve(data.data || data), 1);
-      navigateFunc(currentScreenName);
-    };
+      if (useMerge) {
+        const onBarScanned = function (data: any) {
+          setTimeout(() => resolve(data.data || data), 1);
+          navigationRef.navigate({ name: currentScreenName, params: {}, merge: true });
+        };
 
-    params.onDismiss = function () {
-      setTimeout(() => resolve(null), 1);
-    };
+        params = {
+          showFileImportButton: Boolean(showFileImportButton),
+          onDismiss,
+          onBarScanned,
+        };
+      } else {
+        params = { launchedBy: currentScreenName, showFileImportButton: Boolean(showFileImportButton) };
+      }
 
-    navigateFunc('ScanQRCodeRoot', {
-      screen: 'ScanQRCode',
-      params,
+      navigationRef.navigate({
+        name: 'ScanQRCodeRoot',
+        params: {
+          screen: 'ScanQRCode',
+          params,
+        },
+        merge: true,
+      });
     });
   });
+}
+
+const isCameraAuthorizationStatusGranted = async () => {
+  const status = await check(Platform.OS === 'android' ? PERMISSIONS.ANDROID.CAMERA : PERMISSIONS.IOS.CAMERA);
+  return status === RESULTS.GRANTED;
 };
 
-export {};
+const requestCameraAuthorization = () => {
+  return request(Platform.OS === 'android' ? PERMISSIONS.ANDROID.CAMERA : PERMISSIONS.IOS.CAMERA);
+};
+
+export { scanQrHelper, isCameraAuthorizationStatusGranted, requestCameraAuthorization };

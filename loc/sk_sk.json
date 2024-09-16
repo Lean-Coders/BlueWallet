@@ -3,9 +3,9 @@
     "bad_password": "Nesprávne heslo! Skúste to znovu.",
     "cancel": "Zrušiť",
     "continue": "Pokračovať",
+    "discard_changes": "Zahodiť zmeny?",
     "enter_password": "Zadajte heslo",
     "never": "Nikdy",
-    "disabled": "Vypnuté",
     "of": "{number} z {total}",
     "ok": "OK",
     "storage_is_encrypted": "Vaše úložisko je zašifrované. Zadajte heslo k odomknutiu.",
@@ -14,10 +14,7 @@
     "save": "Uložiť",
     "seed": "Semienko",
     "success": "Správne",
-    "wallet_key": "Peňaženkový kľúč",
-    "invalid_animated_qr_code_fragment": "Neplatný animovaný fragment QR kódu. Skúste to znovu, prosím.",
-    "file_saved": "Súbor {filePath} bol uložený v {destination}.",
-    "downloads_folder": "Priečinok so stiahnutými súbormi."
+    "wallet_key": "Peňaženkový kľúč"
   },
   "alert": {
     "default": "Varovanie"
@@ -36,24 +33,15 @@
     "network": "Sieťová chyba"
   },
   "lnd": {
-    "active": "Aktívne",
-    "inactive": "Neaktívne",
-    "channels": "Kanály",
-    "close_channel": "Zatvoriť kanál",
-    "new_channel": "Nový kanál",
-    "errorInvoiceExpired": "Faktúra je expirovaná",
     "expired": "Expirovaná",
     "expiresIn": "Vyprší za {time} minút",
     "payButton": "Zaplatiť",
-    "placeholder": "Faktúra",
-    "open_channel": "Otvoriť kanál",
     "refill": "Doplniť",
     "refill_create": "Pre pokračovanie, prosím, vytvorte si Bitcoinovú peňaženku",
     "refill_external": "Doplniť z externej peňaženky",
     "refill_lnd_balance": "Doplniť zostatok na Lightning peňaženke",
     "sameWalletAsInvoiceError": "Faktúra sa nedá uhradiť s rovnakou peňaženkou ako tá, ktorá ju vytvorila.",
-    "title": "spravovať zostatok",
-    "can_send": "Môže poslať"
+    "title": "spravovať zostatok"
   },
   "lndViewInvoice": {
     "additional_info": "Doplňujúce informácie",
@@ -69,21 +57,19 @@
     "help": "Za určitých okolností môžete byť donútení k prezradeniu hesla. K zaisteniu bezpečnosti vaších prostriedkov, BlueWallet môže vytvořiť ďalšie zašifrované úložiská s rozdielným heslom. V prípade potreby môžete toto heslo dať tretej strane. Pokiaľ bude zadané do BlueWallet, odomkne nové \"falošné\" úložisko. Toto bude vyzerať hodnoverne, ale udrží vaše pravé hlavné úložisko v bezpečí.",
     "help2": "Nové úložisko bude plne funkčné, môžete naň uložiť minimálnu čiastku, aby vyzeralo uveriteľnejšie.",
     "password_should_not_match": "Heslo k falošnému úložisku nesmie byť rovnaké ako heslo k hlavnému úložisku",
-    "retype_password": "Heslo znovu",
+    "confirm_password": "Heslo znovu",
     "success": "Úspech",
     "title": "Plausible deniability..."
   },
   "pleasebackup": {
     "ask": "Zapísali ste si svoju zálohovaciu frázu? Táto fráza je nutná pre prístup k vašim prostriedkom v prípade straty či poruchy prístroja. Bez zálohovacej frázy by ste trvale prišli o svoje prostriedky.",
-    "ask_no": "Ešte nie",
-    "ask_yes": "Áno",
-    "title": "Tvoja peňaženka bola vytvorená!"
+    "ok_lnd": "OK, uložené.",
+    "title": "Vaša peňaženka je vytvorená..."
   },
   "receive": {
     "details_create": "Vytvoriť",
     "details_label": "Popis",
     "details_setAmount": "Prijať čiastku...",
-    "details_share": "zdieľať",
     "header": "Prijať"
   },
   "send": {
@@ -125,8 +111,6 @@
     "header": "Poslať",
     "input_done": "Hotovo",
     "permission_camera_message": "Potrebujeme povolenie na použitie kamery",
-    "permission_camera_title": "Povolenie na použitie kamery",
-    "permission_storage_later": "Požiadať neskôr",
     "psbt_tx_export": "Exportovať do súboru",
     "psbt_tx_open": "Otvoriť podpísanú transakciu",
     "psbt_tx_scan": "Skenovať podpísanú transakciu",
@@ -169,12 +153,9 @@
     "plausible_deniability": "Plausible deniability...",
     "privacy_system_settings": "Systémové nastavenia",
     "push_notifications": "Push notifikácie",
-    "retype_password": "Heslo znovu",
+    "confirm_password": "Heslo znovu",
     "save": "Uložiť",
     "saved": "Uložené"
-  },
-  "notifications": {
-    "ask_me_later": "Požiadať neskôr"
   },
   "transactions": {
     "cancel_no": "Táto transakcia sa nedá nahradiť",
@@ -183,17 +164,18 @@
     "cpfp_exp": "Vytvoríme novú transakciu, ktorá ako vstup použije výstup z Vašej nepotvrdenej transakcie. Súčet poplatkov bude vyšší, preto sa transakcie overia skôr. Tento postup sa volá CPFP - Child Pays For Parent.",
     "cpfp_no_bump": "Poplatok za túto transakciu sa nedá navýšiť",
     "cpfp_title": "Navýšiť poplatok za transakciu (CPFP)",
-    "details_block": "Výška bloku",
     "details_copy": "Kopírovať",
     "details_from": "Vstup",
     "details_inputs": "Vstupy",
     "details_outputs": "Výstupy",
     "details_received": "Prijaté",
+    "transaction_saved": "Uložené",
     "details_show_in_block_explorer": "Ukázať v block exploreri",
     "details_title": "Transakcia",
     "details_to": "Výstup",
     "pending": "Čaká...",
     "list_title": "transakcie",
+    "transaction": "Transakcia",
     "rbf_title": "Navýšiť poplatok za transakciu (RBF)",
     "status_bump": "Navýšiť poplatok",
     "status_cancel": "Zrušiť transakciu",
@@ -202,12 +184,13 @@
   "wallets": {
     "add_bitcoin": "Bitcoin",
     "add_create": "Vytvoriť",
+    "add_entropy": "Entropia",
     "add_entropy_generated": "{gen} bytov vygenerovanej entropie",
     "add_entropy_provide": "Vytvoriť entropiu pomocou hodov kockou",
     "add_entropy_remain": "{gen} bytov vygenerovanej entropie. Zvyšných {rem} bytov sa získa zo systémového generátora náhodných čísel.",
     "add_import_wallet": "Importovať peňaženku",
     "add_lightning": "Lightning",
-    "add_lndhub": "Pripojiť sa na LNDHub",
+    "add_lndhub": "Pripojiť sa na LNDhub",
     "add_lndhub_placeholder": "adresa uzla",
     "add_title": "pridať peňaženku",
     "add_wallet_name": "názov peňaženky",
@@ -216,16 +199,15 @@
     "details_advanced": "Rozšírené",
     "details_are_you_sure": "Ste si istý?",
     "details_connected_to": "Napojené na",
-    "details_del_wb_err": "Napísaný zostatok nesedí so skutočným zostatkom v peňaženke. Skúste znovu",
     "details_delete": "Zmazaž",
     "details_delete_wallet": "Zmazať peňaženku",
-    "details_display": "zobraziť v zozname peňaženiek",
     "details_export_backup": "Exportovať / zálohovať",
     "details_master_fingerprint": "Hlavný odtlačok prsta",
     "details_no_cancel": "Nie, zrušiť",
     "details_save": "Uložiť",
     "details_show_xpub": "Ukázať XPUB",
     "details_title": "Peňaženka",
+    "wallets": "peňaženky",
     "details_type": "Typ",
     "details_use_with_hardware_wallet": "Použiť s hardwarovou peňaženkou",
     "details_yes_delete": "Ano, zmazať",
@@ -247,7 +229,6 @@
     "list_long_scan": "Skenovať QR kód",
     "list_title": "peňaženky",
     "list_tryagain": "Skúste znovu",
-    "reorder_title": "Zoradiť peňaženky",
     "select_no_bitcoin": "Žiadne Bitcoinové peňaženky nie sú k dispozícii.",
     "select_wallet": "Vyberte peňaženku",
     "xpub_copiedToClipboard": "Skopírované do schránky.",
@@ -256,7 +237,6 @@
   "multisig": {
     "confirm": "Potvrdiť",
     "header": "Poslať",
-    "share": "zdieľať",
     "view": "Zobraziť",
     "create": "Vytvoriť",
     "create_new_key": "Vytvoriť novú",

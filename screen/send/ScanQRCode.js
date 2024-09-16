@@ -1,19 +1,25 @@
-import React, { useEffect, useState } from 'react';
-import { Image, View, TouchableOpacity, StatusBar, Platform, StyleSheet, TextInput, Alert, PermissionsAndroid } from 'react-native';
+import { useFocusEffect, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
+import LocalQRCode from '@remobile/react-native-qrcode-local-image';
+import * as bitcoin from 'bitcoinjs-lib';
+import createHash from 'create-hash';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Alert, Image, Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { CameraScreen } from 'react-native-camera-kit';
-import { Icon } from 'react-native-elements';
+import { Icon } from '@rneui/themed';
 import { launchImageLibrary } from 'react-native-image-picker';
-import { decodeUR, extractSingleWorkload, BlueURDecoder } from '../../blue_modules/ur';
-import { useNavigation, useRoute, useIsFocused, useTheme } from '@react-navigation/native';
-import loc from '../../loc';
-import { BlueLoading, BlueText, BlueButton } from '../../BlueComponents';
-import alert from '../../components/Alert';
 
-const LocalQRCode = require('@remobile/react-native-qrcode-local-image');
-const createHash = require('create-hash');
-const fs = require('../../blue_modules/fs');
-const Base43 = require('../../blue_modules/base43');
-const bitcoin = require('bitcoinjs-lib');
+import Base43 from '../../blue_modules/base43';
+import * as fs from '../../blue_modules/fs';
+import { BlueURDecoder, decodeUR, extractSingleWorkload } from '../../blue_modules/ur';
+import { BlueLoading, BlueSpacing40, BlueText } from '../../BlueComponents';
+import { openPrivacyDesktopSettings } from '../../class/camera';
+import presentAlert from '../../components/Alert';
+import Button from '../../components/Button';
+import { useTheme } from '../../components/themes';
+import { isCameraAuthorizationStatusGranted } from '../../helpers/scan-qr';
+import loc from '../../loc';
+import { useSettings } from '../../hooks/context/useSettings';
+
 let decoder = false;
 
 const styles = StyleSheet.create({
@@ -28,8 +34,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 20,
     position: 'absolute',
-    right: 16,
-    top: 44,
+    left: 16,
+    top: 55,
   },
   closeImage: {
     alignSelf: 'center',
@@ -61,9 +67,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backdoorButton: {
-    width: 40,
-    height: 40,
-    backgroundColor: 'rgba(0,0,0,0.1)',
+    width: 60,
+    height: 60,
+    backgroundColor: 'rgba(0,0,0,0.01)',
     position: 'absolute',
   },
   backdoorInputWrapper: { position: 'absolute', left: '5%', top: '0%', width: '90%', height: '70%', backgroundColor: 'white' },
@@ -80,10 +86,10 @@ const styles = StyleSheet.create({
 
 const ScanQRCode = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const { setIsDrawerShouldHide } = useSettings();
   const navigation = useNavigation();
   const route = useRoute();
-  const showFileImportButton = route.params.showFileImportButton || false;
-  const { launchedBy, onBarScanned, onDismiss, onBarScannerDismissWithoutData = () => {} } = route.params;
+  const { launchedBy, onBarScanned, onDismiss, showFileImportButton } = route.params;
   const scannedCache = {};
   const { colors } = useTheme();
   const isFocused = useIsFocused();
@@ -93,7 +99,7 @@ const ScanQRCode = () => {
   const [backdoorText, setBackdoorText] = useState('');
   const [backdoorVisible, setBackdoorVisible] = useState(false);
   const [animatedQRCodeData, setAnimatedQRCodeData] = useState({});
-  const [cameraStatus, setCameraStatus] = useState(false);
+  const [cameraStatusGranted, setCameraStatusGranted] = useState(false);
   const stylesHook = StyleSheet.create({
     openSettingsContainer: {
       backgroundColor: colors.brandingColor,
@@ -108,35 +114,22 @@ const ScanQRCode = () => {
   });
 
   useEffect(() => {
-    (async () => {
-      try {
-        if (Platform.OS === 'ios' || Platform.OS === 'macos') {
-          setCameraStatus(true);
-          return;
-        }
-        const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA, {
-          title: '',
-          message: loc.send.permission_camera_message,
-          buttonNeutral: loc.send.permission_storage_later,
-          buttonNegative: loc._.no,
-          buttonPositive: loc._.yes,
-        });
-        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-          console.log('You can use the camera');
-          setCameraStatus(true);
-        } else {
-          console.log('Camera permission denied');
-          setCameraStatus(false);
-        }
-      } catch (err) {
-        console.warn(err);
-      }
-    })();
+    isCameraAuthorizationStatusGranted().then(setCameraStatusGranted);
   }, []);
 
   const HashIt = function (s) {
     return createHash('sha256').update(s).digest().toString('hex');
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      setIsDrawerShouldHide(true);
+
+      return () => {
+        setIsDrawerShouldHide(false);
+      };
+    }, [setIsDrawerShouldHide]),
+  );
 
   const _onReadUniformResourceV2 = part => {
     if (!decoder) decoder = new BlueURDecoder();
@@ -146,9 +139,13 @@ const ScanQRCode = () => {
         const data = decoder.toString();
         decoder = false; // nullify for future use (?)
         if (launchedBy) {
-          navigation.navigate(launchedBy);
+          let merge = true;
+          if (typeof onBarScanned !== 'function') {
+            merge = false;
+          }
+          navigation.navigate({ name: launchedBy, params: { scannedData: data }, merge });
         }
-        onBarScanned({ data });
+        onBarScanned && onBarScanned({ data });
       } else {
         setUrTotal(100);
         setUrHave(Math.floor(decoder.estimatedPercentComplete() * 100));
@@ -195,9 +192,13 @@ const ScanQRCode = () => {
           data = Buffer.from(payload, 'hex').toString();
         }
         if (launchedBy) {
-          navigation.navigate(launchedBy);
+          let merge = true;
+          if (typeof onBarScanned !== 'function') {
+            merge = false;
+          }
+          navigation.navigate({ name: launchedBy, params: { scannedData: data }, merge });
         }
-        onBarScanned({ data });
+        onBarScanned && onBarScanned({ data });
       } else {
         setAnimatedQRCodeData(animatedQRCodeData);
       }
@@ -256,11 +257,15 @@ const ScanQRCode = () => {
     try {
       const hex = Base43.decode(ret.data);
       bitcoin.Psbt.fromHex(hex); // if it doesnt throw - all good
-
+      const data = Buffer.from(hex, 'hex').toString('base64');
       if (launchedBy) {
-        navigation.navigate(launchedBy);
+        let merge = true;
+        if (typeof onBarScanned !== 'function') {
+          merge = false;
+        }
+        navigation.navigate({ name: launchedBy, params: { scannedData: data }, merge });
       }
-      onBarScanned({ data: Buffer.from(hex, 'hex').toString('base64') });
+      onBarScanned && onBarScanned({ data });
       return;
     } catch (_) {}
 
@@ -268,9 +273,13 @@ const ScanQRCode = () => {
       setIsLoading(true);
       try {
         if (launchedBy) {
-          navigation.navigate(launchedBy);
+          let merge = true;
+          if (typeof onBarScanned !== 'function') {
+            merge = false;
+          }
+          navigation.navigate({ name: launchedBy, params: { scannedData: ret.data }, merge });
         }
-        onBarScanned(ret.data);
+        onBarScanned && onBarScanned(ret.data);
       } catch (e) {
         console.log(e);
       }
@@ -308,7 +317,7 @@ const ScanQRCode = () => {
                 if (!error) {
                   onBarCodeRead({ data: result });
                 } else {
-                  alert(loc.send.qr_error_no_qrcode);
+                  presentAlert({ message: loc.send.qr_error_no_qrcode });
                   setIsLoading(false);
                 }
               });
@@ -322,24 +331,37 @@ const ScanQRCode = () => {
   };
 
   const dismiss = () => {
-    onBarScannerDismissWithoutData();
     if (launchedBy) {
-      navigation.navigate(launchedBy);
+      let merge = true;
+      if (typeof onBarScanned !== 'function') {
+        merge = false;
+      }
+      navigation.navigate({ name: launchedBy, params: {}, merge });
     } else {
       navigation.goBack();
     }
     if (onDismiss) onDismiss();
   };
 
-  return isLoading ? (
-    <View style={styles.root}>
-      <BlueLoading />
-    </View>
+  const render = isLoading ? (
+    <BlueLoading />
   ) : (
-    <View style={styles.root}>
-      <StatusBar hidden />
-      {isFocused && cameraStatus ? (
-        <CameraScreen scanBarcode onReadCode={event => onBarCodeRead({ data: event?.nativeEvent?.codeStringValue })} showFrame={false} />
+    <>
+      {!cameraStatusGranted ? (
+        <View style={[styles.openSettingsContainer, stylesHook.openSettingsContainer]}>
+          <BlueText>{loc.send.permission_camera_message}</BlueText>
+          <BlueSpacing40 />
+          <Button title={loc.send.open_settings} onPress={openPrivacyDesktopSettings} />
+        </View>
+      ) : isFocused ? (
+        <CameraScreen
+          scanBarcode
+          torchOffImage={require('../../img/flash-off.png')}
+          torchOnImage={require('../../img/flash-on.png')}
+          cameraFlipImage={require('../../img/camera-rotate-solid.png')}
+          onReadCode={event => onBarCodeRead({ data: event?.nativeEvent?.codeStringValue })}
+          showFrame={false}
+        />
       ) : null}
       <TouchableOpacity accessibilityRole="button" accessibilityLabel={loc._.close} style={styles.closeTouch} onPress={dismiss}>
         <Image style={styles.closeImage} source={require('../../img/close-white.png')} />
@@ -386,7 +408,7 @@ const ScanQRCode = () => {
             value={backdoorText}
             onChangeText={setBackdoorText}
           />
-          <BlueButton
+          <Button
             title="OK"
             testID="scanQrBackdoorOkButton"
             onPress={() => {
@@ -413,8 +435,10 @@ const ScanQRCode = () => {
           setBackdoorVisible(true);
         }}
       />
-    </View>
+    </>
   );
+
+  return <View style={styles.root}>{render}</View>;
 };
 
 export default ScanQRCode;

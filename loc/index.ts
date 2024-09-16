@@ -1,20 +1,28 @@
-import Localization from 'react-localization';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
-import localizedFormat from 'dayjs/plugin/localizedFormat';
-import * as RNLocalize from 'react-native-localize';
 import BigNumber from 'bignumber.js';
+import dayjs from 'dayjs';
+import localizedFormat from 'dayjs/plugin/localizedFormat';
+import relativeTime from 'dayjs/plugin/relativeTime';
+import Localization, { LocalizedStrings } from 'react-localization';
+import { I18nManager } from 'react-native';
+import * as RNLocalize from 'react-native-localize';
 
+import { satoshiToLocalCurrency } from '../blue_modules/currency';
 import { BitcoinUnit } from '../models/bitcoinUnits';
 import { AvailableLanguages } from './languages';
-import { I18nManager } from 'react-native';
-const currency = require('../blue_modules/currency');
+import enJson from './en.json';
 
 export const STORAGE_KEY = 'lang';
 
 dayjs.extend(relativeTime);
 dayjs.extend(localizedFormat);
+
+interface ILocalization1 extends LocalizedStrings<typeof enJson> {}
+
+// overriding formatString to only return string
+interface ILocalization extends Omit<ILocalization1, 'formatString'> {
+  formatString: (...args: Parameters<ILocalization1['formatString']>) => string;
+}
 
 const setDateTimeLocale = async () => {
   let lang = (await AsyncStorage.getItem(STORAGE_KEY)) ?? '';
@@ -29,6 +37,10 @@ const setDateTimeLocale = async () => {
     case 'bg_bg':
       lang = 'bg';
       require('dayjs/locale/bg');
+      break;
+    case 'bqi':
+      lang = 'fa';
+      require('dayjs/locale/fa');
       break;
     case 'ca':
       require('dayjs/locale/ca');
@@ -87,6 +99,10 @@ const setDateTimeLocale = async () => {
     case 'ko_kr':
       lang = 'ko';
       require('dayjs/locale/ko');
+      break;
+    case 'lrc':
+      lang = 'fa';
+      require('dayjs/locale/fa');
       break;
     case 'kn':
       require('dayjs/locale/kn');
@@ -198,11 +214,12 @@ const init = async () => {
 };
 init();
 
-const loc = new Localization({
-  en: require('./en.json'),
+const loc: ILocalization = new Localization({
+  en: enJson,
   ar: require('./ar.json'),
   be: require('./be@tarask.json'),
   bg_bg: require('./bg_bg.json'),
+  bqi: require('./bqi.json'),
   ca: require('./ca.json'),
   cy: require('./cy.json'),
   cs_cz: require('./cs_cz.json'),
@@ -222,6 +239,7 @@ const loc = new Localization({
   it: require('./it.json'),
   jp_jp: require('./jp_jp.json'),
   ko_kr: require('./ko_KR.json'),
+  lrc: require('./lrc.json'),
   ms: require('./ms.json'),
   kn: require('./kn.json'),
   ne: require('./ne.json'),
@@ -259,7 +277,7 @@ export const saveLanguage = async (lang: string) => {
   await setDateTimeLocale();
 };
 
-export const transactionTimeToReadable = (time: number) => {
+export const transactionTimeToReadable = (time: number | string) => {
   if (time === -1) {
     return 'unknown';
   }
@@ -271,12 +289,12 @@ export const transactionTimeToReadable = (time: number) => {
     ret = dayjs(time).fromNow();
   } catch (_) {
     console.warn('incorrect locale set for dayjs');
-    return time;
+    return String(time);
   }
   return ret;
 };
 
-export const removeTrailingZeros = (value: number | string) => {
+export const removeTrailingZeros = (value: number | string): string => {
   let ret = value.toString();
 
   if (ret.indexOf('.') === -1) {
@@ -295,7 +313,7 @@ export const removeTrailingZeros = (value: number | string) => {
  * @param withFormatting {boolean} Works only with `BitcoinUnit.SATS`, makes spaces wetween groups of 000
  * @returns {string}
  */
-export function formatBalance(balance: number, toUnit: string, withFormatting = false) {
+export function formatBalance(balance: number, toUnit: string, withFormatting = false): string {
   if (toUnit === undefined) {
     return balance + ' ' + loc.units[BitcoinUnit.BTC];
   }
@@ -304,8 +322,8 @@ export function formatBalance(balance: number, toUnit: string, withFormatting = 
     return removeTrailingZeros(+value) + ' ' + loc.units[BitcoinUnit.BTC];
   } else if (toUnit === BitcoinUnit.SATS) {
     return (withFormatting ? new Intl.NumberFormat().format(balance).toString() : String(balance)) + ' ' + loc.units[BitcoinUnit.SATS];
-  } else if (toUnit === BitcoinUnit.LOCAL_CURRENCY) {
-    return currency.satoshiToLocalCurrency(balance);
+  } else {
+    return satoshiToLocalCurrency(balance);
   }
 }
 
@@ -316,21 +334,18 @@ export function formatBalance(balance: number, toUnit: string, withFormatting = 
  * @param withFormatting {boolean} Works only with `BitcoinUnit.SATS`, makes spaces wetween groups of 000
  * @returns {string}
  */
-export function formatBalanceWithoutSuffix(balance = 0, toUnit: string, withFormatting = false) {
+export function formatBalanceWithoutSuffix(balance = 0, toUnit: string, withFormatting = false): string | number {
   if (toUnit === undefined) {
     return balance;
   }
-  if (balance !== 0) {
-    if (toUnit === BitcoinUnit.BTC) {
-      const value = new BigNumber(balance).dividedBy(100000000).toFixed(8);
-      return removeTrailingZeros(value);
-    } else if (toUnit === BitcoinUnit.SATS) {
-      return withFormatting ? new Intl.NumberFormat().format(balance).toString() : String(balance);
-    } else if (toUnit === BitcoinUnit.LOCAL_CURRENCY) {
-      return currency.satoshiToLocalCurrency(balance);
-    }
+  if (toUnit === BitcoinUnit.BTC) {
+    const value = new BigNumber(balance).dividedBy(100000000).toFixed(8);
+    return removeTrailingZeros(value);
+  } else if (toUnit === BitcoinUnit.SATS) {
+    return withFormatting ? new Intl.NumberFormat().format(balance).toString() : String(balance);
+  } else {
+    return satoshiToLocalCurrency(balance);
   }
-  return balance.toString();
 }
 
 /**
@@ -344,7 +359,7 @@ export function formatBalanceWithoutSuffix(balance = 0, toUnit: string, withForm
 export function formatBalancePlain(balance = 0, toUnit: string, withFormatting = false) {
   const newInputValue = formatBalanceWithoutSuffix(balance, toUnit, withFormatting);
   // eslint-disable-next-line @typescript-eslint/no-use-before-define
-  return _leaveNumbersAndDots(newInputValue);
+  return _leaveNumbersAndDots(newInputValue.toString());
 }
 
 export function _leaveNumbersAndDots(newInputValue: string) {

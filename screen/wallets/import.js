@@ -1,52 +1,47 @@
-import React, { useEffect, useState, useContext } from 'react';
-import { Platform, View, Keyboard, StyleSheet, Switch, TouchableWithoutFeedback } from 'react-native';
-import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
-
-import {
-  BlueButton,
-  BlueButtonLink,
-  BlueDoneAndDismissKeyboardInputAccessory,
-  BlueFormLabel,
-  BlueFormMultiInput,
-  BlueSpacing20,
-  BlueText,
-  SafeBlueArea,
-} from '../../BlueComponents';
-import navigationStyle from '../../components/navigationStyle';
-import Privacy from '../../blue_modules/Privacy';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { useRoute } from '@react-navigation/native';
+import { Keyboard, Platform, StyleSheet, TouchableWithoutFeedback, View, ScrollView } from 'react-native';
+import { BlueButtonLink, BlueFormLabel, BlueFormMultiInput, BlueSpacing20 } from '../../BlueComponents';
+import Button from '../../components/Button';
+import { useTheme } from '../../components/themes';
+import { requestCameraAuthorization } from '../../helpers/scan-qr';
+import usePrivacy from '../../hooks/usePrivacy';
 import loc from '../../loc';
-import { BlueStorageContext } from '../../blue_modules/storage-context';
+import {
+  DoneAndDismissKeyboardInputAccessory,
+  DoneAndDismissKeyboardInputAccessoryViewID,
+} from '../../components/DoneAndDismissKeyboardInputAccessory';
+import { Icon } from '@rneui/themed';
+import { CommonToolTipActions } from '../../typings/CommonToolTipActions';
+import { useKeyboard } from '../../hooks/useKeyboard';
+import ToolTipMenu from '../../components/TooltipMenu';
+import { useExtendedNavigation } from '../../hooks/useExtendedNavigation';
 
 const WalletsImport = () => {
-  const navigation = useNavigation();
+  const navigation = useExtendedNavigation();
   const { colors } = useTheme();
   const route = useRoute();
   const label = route?.params?.label ?? '';
   const triggerImport = route?.params?.triggerImport ?? false;
-  const { isAdvancedModeEnabled } = useContext(BlueStorageContext);
+  const scannedData = route?.params?.scannedData ?? '';
   const [importText, setImportText] = useState(label);
   const [isToolbarVisibleForAndroid, setIsToolbarVisibleForAndroid] = useState(false);
   const [, setSpeedBackdoor] = useState(0);
-  const [isAdvancedModeEnabledRender, setIsAdvancedModeEnabledRender] = useState(false);
   const [searchAccounts, setSearchAccounts] = useState(false);
   const [askPassphrase, setAskPassphrase] = useState(false);
+  const { enableBlur, disableBlur } = usePrivacy();
 
+  // Styles
   const styles = StyleSheet.create({
     root: {
       paddingTop: 10,
       backgroundColor: colors.elevated,
+      flex: 1,
     },
     center: {
       flex: 1,
       marginHorizontal: 16,
       backgroundColor: colors.elevated,
-    },
-    row: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginHorizontal: 16,
-      marginTop: 10,
-      justifyContent: 'space-between',
     },
   });
 
@@ -56,22 +51,33 @@ const WalletsImport = () => {
     return valueWithSingleWhitespace;
   };
 
-  useEffect(() => {
-    Privacy.enableBlur();
-    Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setIsToolbarVisibleForAndroid(true));
-    Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setIsToolbarVisibleForAndroid(false));
-    return () => {
-      Keyboard.removeAllListeners(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow');
-      Keyboard.removeAllListeners(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide');
-      Privacy.disableBlur();
-    };
-  }, []);
+  useKeyboard({
+    onKeyboardDidShow: () => {
+      setIsToolbarVisibleForAndroid(true);
+    },
+    onKeyboardDidHide: () => {
+      setIsToolbarVisibleForAndroid(false);
+    },
+  });
 
   useEffect(() => {
-    isAdvancedModeEnabled().then(setIsAdvancedModeEnabledRender);
+    enableBlur();
+    return () => {
+      disableBlur();
+    };
+  }, [disableBlur, enableBlur]);
+
+  useEffect(() => {
     if (triggerImport) importButtonPressed();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [triggerImport]);
+
+  useEffect(() => {
+    if (scannedData) {
+      onBarScanned(scannedData);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scannedData]);
 
   const importButtonPressed = () => {
     const textToImport = onBlur();
@@ -92,14 +98,15 @@ const WalletsImport = () => {
   };
 
   const importScan = () => {
-    navigation.navigate('ScanQRCodeRoot', {
-      screen: 'ScanQRCode',
-      params: {
-        launchedBy: route.name,
-        onBarScanned,
-        showFileImportButton: true,
-      },
-    });
+    requestCameraAuthorization().then(() =>
+      navigation.navigate('ScanQRCodeRoot', {
+        screen: 'ScanQRCode',
+        params: {
+          launchedBy: route.name,
+          showFileImportButton: true,
+        },
+      }),
+    );
   };
 
   const speedBackdoorTap = () => {
@@ -111,25 +118,55 @@ const WalletsImport = () => {
     });
   };
 
+  const toolTipOnPressMenuItem = useCallback(
+    menuItem => {
+      if (menuItem === CommonToolTipActions.Passphrase.id) {
+        setAskPassphrase(!askPassphrase);
+      } else if (menuItem === CommonToolTipActions.SearchAccount.id) {
+        setSearchAccounts(!searchAccounts);
+      }
+    },
+    [askPassphrase, searchAccounts],
+  );
+
+  // ToolTipMenu actions for advanced options
+  const toolTipActions = useMemo(() => {
+    const askPassphraseAction = CommonToolTipActions.Passphrase;
+    askPassphraseAction.menuState = askPassphrase;
+
+    const searchAccountsAction = CommonToolTipActions.SearchAccount;
+    searchAccountsAction.menuState = searchAccounts;
+    return [askPassphraseAction, searchAccountsAction];
+  }, [askPassphrase, searchAccounts]);
+
+  const HeaderRight = useMemo(
+    () => (
+      <ToolTipMenu
+        isButton
+        testID="HeaderRightButton"
+        isMenuPrimaryAction
+        onPressMenuItem={toolTipOnPressMenuItem}
+        actions={toolTipActions}
+      >
+        <Icon size={22} name="more-horiz" type="material" color={colors.foregroundColor} />
+      </ToolTipMenu>
+    ),
+    [toolTipOnPressMenuItem, toolTipActions, colors.foregroundColor],
+  );
+
+  // Adding the ToolTipMenu to the header
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => HeaderRight,
+    });
+  }, [askPassphrase, searchAccounts, colors.foregroundColor, navigation, toolTipActions, HeaderRight]);
+
   const renderOptionsAndImportButton = (
     <>
-      {isAdvancedModeEnabledRender && (
-        <>
-          <View style={styles.row}>
-            <BlueText>{loc.wallets.import_passphrase}</BlueText>
-            <Switch testID="AskPassphrase" value={askPassphrase} onValueChange={setAskPassphrase} />
-          </View>
-          <View style={styles.row}>
-            <BlueText>{loc.wallets.import_search_accounts}</BlueText>
-            <Switch testID="SearchAccounts" value={searchAccounts} onValueChange={setSearchAccounts} />
-          </View>
-        </>
-      )}
-
       <BlueSpacing20 />
       <View style={styles.center}>
         <>
-          <BlueButton
+          <Button
             disabled={importText.trim().length === 0}
             title={loc.wallets.import_do_import}
             testID="DoImport"
@@ -143,7 +180,14 @@ const WalletsImport = () => {
   );
 
   return (
-    <SafeBlueArea style={styles.root}>
+    <ScrollView
+      contentContainerStyle={styles.root}
+      automaticallyAdjustContentInsets
+      automaticallyAdjustsScrollIndicatorInsets
+      keyboardShouldPersistTaps="always"
+      automaticallyAdjustKeyboardInsets
+      contentInsetAdjustmentBehavior="automatic"
+    >
       <BlueSpacing20 />
       <TouchableWithoutFeedback accessibilityRole="button" onPress={speedBackdoorTap} testID="SpeedBackdoor">
         <BlueFormLabel>{loc.wallets.import_explanation}</BlueFormLabel>
@@ -154,13 +198,13 @@ const WalletsImport = () => {
         onBlur={onBlur}
         onChangeText={setImportText}
         testID="MnemonicInput"
-        inputAccessoryViewID={BlueDoneAndDismissKeyboardInputAccessory.InputAccessoryViewID}
+        inputAccessoryViewID={DoneAndDismissKeyboardInputAccessoryViewID}
       />
 
       {Platform.select({ android: !isToolbarVisibleForAndroid && renderOptionsAndImportButton, default: renderOptionsAndImportButton })}
       {Platform.select({
         ios: (
-          <BlueDoneAndDismissKeyboardInputAccessory
+          <DoneAndDismissKeyboardInputAccessory
             onClearTapped={() => {
               setImportText('');
             }}
@@ -171,7 +215,7 @@ const WalletsImport = () => {
           />
         ),
         android: isToolbarVisibleForAndroid && (
-          <BlueDoneAndDismissKeyboardInputAccessory
+          <DoneAndDismissKeyboardInputAccessory
             onClearTapped={() => {
               setImportText('');
               Keyboard.dismiss();
@@ -183,10 +227,8 @@ const WalletsImport = () => {
           />
         ),
       })}
-    </SafeBlueArea>
+    </ScrollView>
   );
 };
-
-WalletsImport.navigationOptions = navigationStyle({}, opts => ({ ...opts, title: loc.wallets.import_title }));
 
 export default WalletsImport;

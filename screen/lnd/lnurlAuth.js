@@ -1,18 +1,18 @@
-import React, { useState, useContext, useCallback, useMemo } from 'react';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import React, { useCallback, useMemo, useState } from 'react';
 import { I18nManager, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Icon } from 'react-native-elements';
-
-import { BlueButton, BlueCard, BlueLoading, BlueSpacing20, BlueSpacing40, BlueText, SafeBlueArea } from '../../BlueComponents';
-
-import navigationStyle from '../../components/navigationStyle';
-import Lnurl from '../../class/lnurl';
-import { Chain } from '../../models/bitcoinUnits';
-import loc from '../../loc';
-import { BlueStorageContext } from '../../blue_modules/storage-context';
-import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
-import selectWallet from '../../helpers/select-wallet';
+import { Icon } from '@rneui/themed';
 import URL from 'url';
+import { BlueCard, BlueLoading, BlueSpacing20, BlueSpacing40, BlueText } from '../../BlueComponents';
+import Lnurl from '../../class/lnurl';
+import Button from '../../components/Button';
+import SafeArea from '../../components/SafeArea';
+import { useTheme } from '../../components/themes';
+import selectWallet from '../../helpers/select-wallet';
+import loc from '../../loc';
+import { Chain } from '../../models/bitcoinUnits';
 import { SuccessView } from '../send/success';
+import { useStorage } from '../../hooks/context/useStorage';
 
 const AuthState = {
   USER_PROMPT: 0,
@@ -22,7 +22,7 @@ const AuthState = {
 };
 
 const LnurlAuth = () => {
-  const { wallets } = useContext(BlueStorageContext);
+  const { wallets } = useStorage();
   const { name } = useRoute();
   const { walletID, lnurl } = useRoute().params;
   const wallet = useMemo(() => wallets.find(w => w.getID() === walletID), [wallets, walletID]);
@@ -85,7 +85,7 @@ const LnurlAuth = () => {
   );
 
   return (
-    <SafeBlueArea style={styles.root}>
+    <SafeArea style={styles.root}>
       {authState === AuthState.USER_PROMPT && (
         <>
           <ScrollView>
@@ -94,7 +94,7 @@ const LnurlAuth = () => {
               <BlueText style={styles.domainName}>{parsedLnurl.hostname}</BlueText>
               <BlueText style={styles.alignSelfCenter}>{loc.lnurl_auth[`${parsedLnurl.query.action || 'auth'}_question_part_2`]}</BlueText>
               <BlueSpacing40 />
-              <BlueButton title={loc.lnurl_auth.authenticate} onPress={authenticate} />
+              <Button title={loc.lnurl_auth.authenticate} onPress={authenticate} />
               <BlueSpacing40 />
             </BlueCard>
           </ScrollView>
@@ -123,7 +123,7 @@ const LnurlAuth = () => {
           <BlueSpacing20 />
         </BlueCard>
       )}
-    </SafeBlueArea>
+    </SafeArea>
   );
 };
 
@@ -168,10 +168,4 @@ const styles = StyleSheet.create({
   walletWrapLabel: {
     fontSize: 14,
   },
-});
-
-LnurlAuth.navigationOptions = navigationStyle({
-  title: '',
-  closeButton: true,
-  closeButtonFunc: ({ navigation }) => navigation.dangerouslyGetParent().popToTop(),
 });

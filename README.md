@@ -76,14 +76,17 @@ In another terminal window within the BlueWallet folder:
 ```
 npx react-native run-ios
 ```
+**To debug BlueWallet on the iOS Simulator, you must choose a Rosetta-compatible iOS Simulator. This can be done by navigating to the Product menu in Xcode, selecting Destination Architectures, and then opting for "Show Both." This action will reveal the simulators that support Rosetta.
+**
 
 * To run on macOS using Mac Catalyst:
 
 ```
-npm run maccatalystpatches
+npx pod-install
+npm start
 ```
 
-Once the patches are applied, open Xcode and select "My Mac" as destination.
+Open ios/BlueWallet.xcworkspace. Once the project loads, select the scheme/target BlueWallet. Click Run.
 
 ## TESTS
 
@@ -98,7 +101,7 @@ MIT
 
 ## WANT TO CONTRIBUTE?
 
-Grab an issue from [the backlog](https://github.com/BlueWallet/BlueWallet/projects/1), try to start or submit a PR, any doubts we will try to guide you. Contributors have a private telegram group, request access by email bluewallet@bluewallet.io
+Grab an issue from [the backlog](https://github.com/BlueWallet/BlueWallet/issues), try to start or submit a PR, any doubts we will try to guide you. Contributors have a private telegram group, request access by email bluewallet@bluewallet.io
 
 ## Translations
 

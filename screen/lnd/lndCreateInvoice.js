@@ -1,44 +1,45 @@
-import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import {
   ActivityIndicator,
+  I18nManager,
   Image,
   Keyboard,
-  KeyboardAvoidingView,
-  StatusBar,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
-  Platform,
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
-  I18nManager,
 } from 'react-native';
-import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
-import { Icon } from 'react-native-elements';
-import { useFocusEffect, useNavigation, useRoute, useTheme } from '@react-navigation/native';
-
-import { BlueAlertWalletExportReminder, BlueButton, BlueDismissKeyboardInputAccessory, BlueLoading } from '../../BlueComponents';
-import navigationStyle from '../../components/navigationStyle';
-import AmountInput from '../../components/AmountInput';
-import * as NavigationService from '../../NavigationService';
-import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
-import loc, { formatBalance, formatBalanceWithoutSuffix, formatBalancePlain } from '../../loc';
-import Lnurl from '../../class/lnurl';
-import { BlueStorageContext } from '../../blue_modules/storage-context';
-import Notifications from '../../blue_modules/notifications';
-import alert from '../../components/Alert';
+import { Icon } from '@rneui/themed';
 import { parse } from 'url'; // eslint-disable-line n/no-deprecated-api
-const currency = require('../../blue_modules/currency');
-const torrific = require('../../blue_modules/torrific');
+import { btcToSatoshi, fiatToBTC, satoshiToBTC } from '../../blue_modules/currency';
+import triggerHapticFeedback, { HapticFeedbackTypes } from '../../blue_modules/hapticFeedback';
+import Notifications from '../../blue_modules/notifications';
+import { BlueLoading } from '../../BlueComponents';
+import Lnurl from '../../class/lnurl';
+import presentAlert from '../../components/Alert';
+import AmountInput from '../../components/AmountInput';
+import Button from '../../components/Button';
+import { useTheme } from '../../components/themes';
+import { presentWalletExportReminder } from '../../helpers/presentWalletExportReminder';
+import { requestCameraAuthorization } from '../../helpers/scan-qr';
+import loc, { formatBalance, formatBalancePlain, formatBalanceWithoutSuffix } from '../../loc';
+import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
+import * as NavigationService from '../../NavigationService';
+import { useStorage } from '../../hooks/context/useStorage';
+import { DismissKeyboardInputAccessory, DismissKeyboardInputAccessoryViewID } from '../../components/DismissKeyboardInputAccessory';
 
 const LNDCreateInvoice = () => {
-  const { wallets, saveToDisk, setSelectedWallet, isTorDisabled } = useContext(BlueStorageContext);
+  const { wallets, saveToDisk, setSelectedWalletID } = useStorage();
   const { walletID, uri } = useRoute().params;
   const wallet = useRef(wallets.find(item => item.getID() === walletID) || wallets.find(item => item.chain === Chain.OFFCHAIN));
+  const createInvoiceRef = useRef();
   const { name } = useRoute();
   const { colors } = useTheme();
-  const { navigate, dangerouslyGetParent, goBack, pop, setParams } = useNavigation();
+  const { navigate, getParent, goBack, pop, setParams } = useNavigation();
   const [unit, setUnit] = useState(wallet.current?.getPreferredBalanceUnit() || BitcoinUnit.BTC);
   const [amount, setAmount] = useState();
   const [renderWalletSelectionButtonHidden, setRenderWalletSelectionButtonHidden] = useState(false);
@@ -76,12 +77,11 @@ const LNDCreateInvoice = () => {
   });
 
   useEffect(() => {
-    // console.log(params)
-    Keyboard.addListener('keyboardDidShow', _keyboardDidShow);
-    Keyboard.addListener('keyboardDidHide', _keyboardDidHide);
+    const showSubscription = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', _keyboardDidShow);
+    const hideSubscription = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', _keyboardDidHide);
     return () => {
-      Keyboard.removeAllListeners('keyboardDidShow');
-      Keyboard.removeAllListeners('keyboardDidHide');
+      showSubscription.remove();
+      hideSubscription.remove();
     };
   }, []);
 
@@ -103,7 +103,7 @@ const LNDCreateInvoice = () => {
       const newWallet = wallets.find(w => w.getID() === walletID);
       if (newWallet) {
         wallet.current = newWallet;
-        setSelectedWallet(newWallet.getID());
+        setSelectedWalletID(newWallet.getID());
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -112,26 +112,27 @@ const LNDCreateInvoice = () => {
   useFocusEffect(
     useCallback(() => {
       if (wallet.current) {
-        setSelectedWallet(walletID);
+        setSelectedWalletID(walletID);
         if (wallet.current.getUserHasSavedExport()) {
           renderReceiveDetails();
         } else {
-          BlueAlertWalletExportReminder({
-            onSuccess: () => renderReceiveDetails(),
-            onFailure: () => {
-              dangerouslyGetParent().pop();
+          presentWalletExportReminder()
+            .then(() => {
+              renderReceiveDetails();
+            })
+            .catch(() => {
+              getParent().pop();
               NavigationService.navigate('WalletExportRoot', {
                 screen: 'WalletExport',
                 params: {
                   walletID,
                 },
               });
-            },
-          });
+            });
         }
       } else {
-        ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
-        alert(loc.wallets.add_ln_wallet_first);
+        triggerHapticFeedback(HapticFeedbackTypes.NotificationError);
+        presentAlert({ message: loc.wallets.add_ln_wallet_first });
         goBack();
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -155,11 +156,11 @@ const LNDCreateInvoice = () => {
           invoiceAmount = parseInt(invoiceAmount, 10); // basically nop
           break;
         case BitcoinUnit.BTC:
-          invoiceAmount = currency.btcToSatoshi(invoiceAmount);
+          invoiceAmount = btcToSatoshi(invoiceAmount);
           break;
         case BitcoinUnit.LOCAL_CURRENCY:
           // trying to fetch cached sat equivalent for this fiat amount
-          invoiceAmount = AmountInput.getCachedSatoshis(invoiceAmount) || currency.btcToSatoshi(currency.fiatToBTC(invoiceAmount));
+          invoiceAmount = AmountInput.getCachedSatoshis(invoiceAmount) || btcToSatoshi(fiatToBTC(invoiceAmount));
           break;
       }
 
@@ -178,20 +179,20 @@ const LNDCreateInvoice = () => {
                 ? loc.formatString(loc.receive.maxSats, { max })
                 : loc.formatString(loc.receive.maxSatsFull, { max, currency: formatBalance(max, unit) });
           }
-          ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
-          alert(text);
+          triggerHapticFeedback(HapticFeedbackTypes.NotificationError);
+          presentAlert({ message: text });
           setIsLoading(false);
           return;
         }
       }
 
       const invoiceRequest = await wallet.current.addInvoice(invoiceAmount, description);
-      ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
+      triggerHapticFeedback(HapticFeedbackTypes.NotificationSuccess);
 
       // lets decode payreq and subscribe groundcontrol so we can receive push notification when our invoice is paid
       /** @type LightningCustodianWallet */
       const decoded = await wallet.current.decodeInvoice(invoiceRequest);
-      await Notifications.tryToObtainPermissions();
+      await Notifications.tryToObtainPermissions(createInvoiceRef);
       Notifications.majorTomToGroundControl([], [decoded.payment_hash], []);
 
       // send to lnurl-withdraw callback url if that exists
@@ -199,20 +200,12 @@ const LNDCreateInvoice = () => {
         const { callback, k1 } = lnurlParams;
         const callbackUrl = callback + (callback.indexOf('?') !== -1 ? '&' : '?') + 'k1=' + k1 + '&pr=' + invoiceRequest;
 
-        let reply;
-        if (!isTorDisabled && callbackUrl.includes('.onion')) {
-          const api = new torrific.Torsbee();
-          const torResponse = await api.get(callbackUrl);
-          reply = torResponse.body;
-          if (reply && typeof reply === 'string') reply = JSON.parse(reply);
-        } else {
-          const resp = await fetch(callbackUrl, { method: 'GET' });
-          if (resp.status >= 300) {
-            const text = await resp.text();
-            throw new Error(text);
-          }
-          reply = await resp.json();
+        const resp = await fetch(callbackUrl, { method: 'GET' });
+        if (resp.status >= 300) {
+          const text = await resp.text();
+          throw new Error(text);
         }
+        const reply = await resp.json();
 
         if (reply.status === 'ERROR') {
           throw new Error('Reply from server: ' + reply.reason);
@@ -230,17 +223,17 @@ const LNDCreateInvoice = () => {
         walletID: wallet.current.getID(),
       });
     } catch (Err) {
-      ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
+      triggerHapticFeedback(HapticFeedbackTypes.NotificationError);
       setIsLoading(false);
-      alert(Err.message);
+      presentAlert({ message: Err.message });
     }
   };
 
   const processLnurl = async data => {
     setIsLoading(true);
     if (!wallet.current) {
-      ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
-      alert(loc.wallets.no_ln_wallet_error);
+      triggerHapticFeedback(HapticFeedbackTypes.NotificationError);
+      presentAlert({ message: loc.wallets.no_ln_wallet_error });
       return goBack();
     }
 
@@ -257,22 +250,14 @@ const LNDCreateInvoice = () => {
     }
 
     // calling the url
-    let reply;
     try {
-      if (!isTorDisabled && url.includes('.onion')) {
-        const api = new torrific.Torsbee();
-        const torResponse = await api.get(url);
-        reply = torResponse.body;
-        if (reply && typeof reply === 'string') reply = JSON.parse(reply);
-      } else {
-        const resp = await fetch(url, { method: 'GET' });
-        if (resp.status >= 300) {
-          throw new Error('Bad response from server');
-        }
-        reply = await resp.json();
-        if (reply.status === 'ERROR') {
-          throw new Error('Reply from server: ' + reply.reason);
-        }
+      const resp = await fetch(url, { method: 'GET' });
+      if (resp.status >= 300) {
+        throw new Error('Bad response from server');
+      }
+      const reply = await resp.json();
+      if (reply.status === 'ERROR') {
+        throw new Error('Reply from server: ' + reply.reason);
       }
 
       if (reply.tag === Lnurl.TAG_PAY_REQUEST) {
@@ -300,7 +285,7 @@ const LNDCreateInvoice = () => {
           // nop
           break;
         case BitcoinUnit.BTC:
-          newAmount = currency.satoshiToBTC(newAmount);
+          newAmount = satoshiToBTC(newAmount);
           break;
         case BitcoinUnit.LOCAL_CURRENCY:
           newAmount = formatBalancePlain(newAmount, BitcoinUnit.LOCAL_CURRENCY);
@@ -322,8 +307,8 @@ const LNDCreateInvoice = () => {
     } catch (Err) {
       Keyboard.dismiss();
       setIsLoading(false);
-      ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
-      alert(Err.message);
+      triggerHapticFeedback(HapticFeedbackTypes.NotificationError);
+      presentAlert({ message: Err.message });
     }
   };
 
@@ -333,21 +318,23 @@ const LNDCreateInvoice = () => {
         {isLoading ? (
           <ActivityIndicator />
         ) : (
-          <BlueButton disabled={!(amount > 0)} onPress={createInvoice} title={loc.send.details_create} />
+          <Button disabled={!(amount > 0)} ref={createInvoiceRef} onPress={createInvoice} title={loc.send.details_create} />
         )}
       </View>
     );
   };
 
   const navigateToScanQRCode = () => {
-    NavigationService.navigate('ScanQRCodeRoot', {
-      screen: 'ScanQRCode',
-      params: {
-        onBarScanned: processLnurl,
-        launchedBy: name,
-      },
+    requestCameraAuthorization().then(() => {
+      NavigationService.navigate('ScanQRCodeRoot', {
+        screen: 'ScanQRCode',
+        params: {
+          onBarScanned: processLnurl,
+          launchedBy: name,
+        },
+      });
+      Keyboard.dismiss();
     });
-    Keyboard.dismiss();
   };
 
   const renderScanClickable = () => {
@@ -401,7 +388,6 @@ const LNDCreateInvoice = () => {
   if (!wallet.current) {
     return (
       <View style={[styles.root, styleHooks.root]}>
-        <StatusBar barStyle="light-content" />
         <BlueLoading />
       </View>
     );
@@ -410,35 +396,32 @@ const LNDCreateInvoice = () => {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <View style={[styles.root, styleHooks.root]}>
-        <StatusBar barStyle="light-content" />
         <View style={[styles.amount, styleHooks.amount]}>
-          <KeyboardAvoidingView enabled={!Platform.isPad} behavior="position">
-            <AmountInput
-              isLoading={isLoading}
-              amount={amount}
-              onAmountUnitChange={setUnit}
-              onChangeText={setAmount}
-              disabled={isLoading || (lnurlParams && lnurlParams.fixed)}
-              unit={unit}
-              inputAccessoryViewID={BlueDismissKeyboardInputAccessory.InputAccessoryViewID}
+          <AmountInput
+            isLoading={isLoading}
+            amount={amount}
+            onAmountUnitChange={setUnit}
+            onChangeText={setAmount}
+            disabled={isLoading || (lnurlParams && lnurlParams.fixed)}
+            unit={unit}
+            inputAccessoryViewID={DismissKeyboardInputAccessoryViewID}
+          />
+          <View style={[styles.fiat, styleHooks.fiat]}>
+            <TextInput
+              onChangeText={setDescription}
+              placeholder={loc.receive.details_label}
+              value={description}
+              numberOfLines={1}
+              placeholderTextColor="#81868e"
+              style={styles.fiat2}
+              editable={!isLoading}
+              onSubmitEditing={Keyboard.dismiss}
+              inputAccessoryViewID={DismissKeyboardInputAccessoryViewID}
             />
-            <View style={[styles.fiat, styleHooks.fiat]}>
-              <TextInput
-                onChangeText={setDescription}
-                placeholder={loc.receive.details_label}
-                value={description}
-                numberOfLines={1}
-                placeholderTextColor="#81868e"
-                style={styles.fiat2}
-                editable={!isLoading}
-                onSubmitEditing={Keyboard.dismiss}
-                inputAccessoryViewID={BlueDismissKeyboardInputAccessory.InputAccessoryViewID}
-              />
-              {lnurlParams ? null : renderScanClickable()}
-            </View>
-            <BlueDismissKeyboardInputAccessory />
-            {renderCreateButton()}
-          </KeyboardAvoidingView>
+            {lnurlParams ? null : renderScanClickable()}
+          </View>
+          <DismissKeyboardInputAccessory />
+          {renderCreateButton()}
         </View>
         {renderWalletSelectionButton()}
       </View>
@@ -531,10 +514,3 @@ const styles = StyleSheet.create({
 
 export default LNDCreateInvoice;
 LNDCreateInvoice.routeName = 'LNDCreateInvoice';
-LNDCreateInvoice.navigationOptions = navigationStyle(
-  {
-    closeButton: true,
-    headerHideBackButton: true,
-  },
-  opts => ({ ...opts, title: loc.receive.header }),
-);

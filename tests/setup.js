@@ -50,6 +50,8 @@ jest.mock('@react-native-community/push-notification-ios', () => {
   return {};
 });
 
+jest.mock('react-native-permissions', () => require('react-native-permissions/mock'));
+
 jest.mock('react-native-device-info', () => {
   return {
     getUniqueId: jest.fn().mockReturnValue('uniqueId'),
@@ -57,6 +59,7 @@ jest.mock('react-native-device-info', () => {
     getDeviceType: jest.fn().mockReturnValue(false),
     hasGmsSync: jest.fn().mockReturnValue(true),
     hasHmsSync: jest.fn().mockReturnValue(false),
+    isTablet: jest.fn().mockReturnValue(false),
   };
 });
 
@@ -74,6 +77,8 @@ jest.mock('react-native-default-preference', () => {
     set: jest.fn(),
   };
 });
+
+jest.mock('@lodev09/react-native-true-sheet');
 
 jest.mock('react-native-fs', () => {
   return {
@@ -125,12 +130,16 @@ jest.mock('react-native-document-picker', () => ({}));
 
 jest.mock('react-native-haptic-feedback', () => ({}));
 
-jest.mock('rn-ldk/lib/module', () => ({}));
-jest.mock('rn-ldk/src/index', () => ({}));
-
 const realmInstanceMock = {
+  create: function () {},
+  delete: function () {},
   close: function () {},
-  write: function () {},
+  write: function (transactionFn) {
+    if (typeof transactionFn === 'function') {
+      // to test if something is not right in Realm transactional database write
+      transactionFn();
+    }
+  },
   objectForPrimaryKey: function () {
     return {};
   },
@@ -145,6 +154,7 @@ const realmInstanceMock = {
 };
 jest.mock('realm', () => {
   return {
+    UpdateMode: { Modified: 1 },
     open: jest.fn(() => realmInstanceMock),
   };
 });
@@ -174,12 +184,6 @@ jest.mock('../blue_modules/analytics', () => {
 jest.mock('react-native-share', () => {
   return {
     open: jest.fn(),
-  };
-});
-
-jest.mock('../blue_modules/WidgetCommunication', () => {
-  return {
-    reloadAllTimelines: jest.fn(),
   };
 });
 
